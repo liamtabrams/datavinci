@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "datavinci"
+dynamic = ["version"]
+description = "A friendly matplotlib-wrapping toolkit for plotting time series and financial ticker data."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Liam Abrams", email = "ltabrams@dons.usfca.edu" }]
+keywords = ["visualization", "matplotlib", "time-series", "finance", "plotting", "candlestick"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+dependencies = [
+    "matplotlib>=3.6",
+    "pandas>=1.5",
+    "numpy>=1.23",
+]
+
+[project.optional-dependencies]
+# Pulls in yfinance so you can load real ticker data with datavinci.data.load_ticker.
+finance = ["yfinance>=0.2"]
+# Everything needed to develop, test, and publish the package.
+dev = [
+    "pytest>=7",
+    "pytest-cov",
+    "ruff",
+    "build",
+    "twine",
+    "yfinance>=0.2",
+]
+
+[project.urls]
+Homepage = "https://github.com/liamtabrams/datavinci"
+Repository = "https://github.com/liamtabrams/datavinci"
+Issues = "https://github.com/liamtabrams/datavinci/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.dynamic]
+version = { attr = "datavinci.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

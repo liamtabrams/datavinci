@@ -1,0 +1,28 @@
+# Build and publish datavinci to PyPI when a GitHub Release is published.
+#
+# Recommended setup — PyPI Trusted Publishing (no API tokens to manage):
+#   1. On PyPI, register the project and add a "trusted publisher" pointing at
+#      this repo + workflow (https://docs.pypi.org/trusted-publishers/).
+#   2. Create a GitHub Release; this workflow builds and uploads automatically.
+name: Publish
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # required for PyPI Trusted Publishing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
