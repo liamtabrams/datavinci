@@ -3,7 +3,9 @@
 Every public function accepts an optional ``ax`` and returns a matplotlib
 ``Axes``. If you don't pass one, a new figure/axes is created for you. Because
 the return value is a plain Axes, you can keep tweaking the result with the full
-matplotlib API afterwards.
+matplotlib API afterwards. All charts use datavinci's dark "pro terminal" theme
+(see ``_theme``): a gradient backdrop, glowing lines, shadowed candles, and
+vertical time-span grid lines.
 """
 
 from __future__ import annotations
@@ -11,12 +13,23 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import matplotlib.dates as mdates
+import matplotlib.patheffects as pe
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.axes import Axes
 
-from ._theme import DOWN_COLOR, PALETTE, UP_COLOR, style_axes
+from ._theme import (
+    DOWN_COLOR,
+    INK,
+    PALETTE,
+    UP_COLOR,
+    add_time_grid,
+    glow,
+    gradient_fill,
+    style_axes,
+    style_legend,
+)
 
 __all__ = ["line", "candlestick", "moving_average"]
 
@@ -27,6 +40,13 @@ def _new_ax(ax: Axes | None, figsize: tuple[float, float]) -> Axes:
         return ax
     _, ax = plt.subplots(figsize=figsize)
     return ax
+
+
+def _x_numeric(index: pd.Index) -> tuple[np.ndarray, bool]:
+    """Map an index to numeric x values; report whether it is datetime-based."""
+    if isinstance(index, pd.DatetimeIndex):
+        return mdates.date2num(index.to_pydatetime()), True
+    return np.arange(len(index), dtype=float), False
 
 
 def _as_series(data: pd.Series | pd.DataFrame, name: str = "value") -> pd.Series:
@@ -52,9 +72,10 @@ def line(
     xlabel: str | None = None,
     ylabel: str | None = None,
     legend: bool = True,
-    figsize: tuple[float, float] = (10, 5),
+    fill: bool = True,
+    figsize: tuple[float, float] = (11, 5),
 ) -> Axes:
-    """Plot one or more time series as clean line charts.
+    """Plot one or more time series as glowing line charts.
 
     Parameters
     ----------
@@ -68,6 +89,8 @@ def line(
         Optional labels.
     legend:
         Whether to show a legend (only meaningful for multiple series).
+    fill:
+        For a single series, shade the area beneath it with a gradient.
 
     Returns
     -------
@@ -86,18 +109,22 @@ def line(
             raise KeyError(f"Columns not found in data: {missing}")
         frame = frame[list(columns)]
 
+    x, is_dt = _x_numeric(frame.index)
     for i, col in enumerate(frame.columns):
-        ax.plot(
-            frame.index,
-            frame[col].to_numpy(dtype=float),
-            label=str(col),
-            color=PALETTE[i % len(PALETTE)],
-            linewidth=1.6,
-        )
+        color = PALETTE[i % len(PALETTE)]
+        y = frame[col].to_numpy(dtype=float)
+        (ln,) = ax.plot(x, y, label=str(col), color=color, linewidth=2.0, solid_capstyle="round")
+        ln.set_path_effects(glow(color, base_lw=2.0))
+
+    if is_dt:
+        ax.xaxis_date()
+    if fill and frame.shape[1] == 1:
+        gradient_fill(ax, x, frame.iloc[:, 0].to_numpy(dtype=float), PALETTE[0])
 
     style_axes(ax, title=title, xlabel=xlabel, ylabel=ylabel)
+    add_time_grid(ax, is_dt)
     if legend and frame.shape[1] > 1:
-        ax.legend(frameon=False)
+        style_legend(ax, loc="best")
     return ax
 
 
@@ -109,7 +136,7 @@ def moving_average(
     price_label: str = "Price",
     title: str | None = None,
     ylabel: str | None = None,
-    figsize: tuple[float, float] = (10, 5),
+    figsize: tuple[float, float] = (11, 5),
 ) -> Axes:
     """Plot a series together with one or more simple moving averages (SMA).
 
@@ -128,22 +155,27 @@ def moving_average(
     """
     ax = _new_ax(ax, figsize)
     series = _as_series(data).astype(float)
+    x, is_dt = _x_numeric(series.index)
+    y = series.to_numpy()
 
-    ax.plot(series.index, series.to_numpy(), label=price_label, color="#333333", linewidth=1.3)
+    # Underlying price: bright neutral ink with a gradient fill beneath.
+    (price_line,) = ax.plot(x, y, label=price_label, color=INK, linewidth=1.8)
+    price_line.set_path_effects(glow(INK, base_lw=1.8, layers=3))
+    gradient_fill(ax, x, y, PALETTE[0], alpha=0.28)
+
     for i, w in enumerate(windows):
         if w < 1:
             raise ValueError(f"Moving-average window must be >= 1, got {w}.")
-        sma = series.rolling(window=w, min_periods=1).mean()
-        ax.plot(
-            sma.index,
-            sma.to_numpy(),
-            label=f"SMA {w}",
-            color=PALETTE[i % len(PALETTE)],
-            linewidth=1.6,
-        )
+        color = PALETTE[i % len(PALETTE)]
+        sma = series.rolling(window=w, min_periods=1).mean().to_numpy()
+        (ln,) = ax.plot(x, sma, label=f"SMA {w}", color=color, linewidth=2.0)
+        ln.set_path_effects(glow(color, base_lw=2.0))
 
+    if is_dt:
+        ax.xaxis_date()
     style_axes(ax, title=title, ylabel=ylabel)
-    ax.legend(frameon=False)
+    add_time_grid(ax, is_dt)
+    style_legend(ax, loc="best")
     return ax
 
 
@@ -157,10 +189,10 @@ def candlestick(
     ax: Axes | None = None,
     up_color: str = UP_COLOR,
     down_color: str = DOWN_COLOR,
-    width: float = 0.6,
+    width: float = 0.7,
     title: str | None = None,
     ylabel: str | None = "Price",
-    figsize: tuple[float, float] = (11, 5),
+    figsize: tuple[float, float] = (12, 5.5),
 ) -> Axes:
     """Draw an OHLC candlestick chart from a DataFrame of ticker data.
 
@@ -196,33 +228,35 @@ def candlestick(
     low_arr = df[low].to_numpy(dtype=float)
     c = df[close].to_numpy(dtype=float)
 
-    if isinstance(df.index, pd.DatetimeIndex):
-        x = mdates.date2num(df.index.to_pydatetime())
+    x, is_dt = _x_numeric(df.index)
+    if is_dt:
         ax.xaxis_date()
-    else:
-        x = np.arange(len(df), dtype=float)
 
     up = c >= o
     colors = np.where(up, up_color, down_color)
 
-    # High-low wicks.
-    ax.vlines(x, low_arr, h, color=colors, linewidth=1.0, zorder=2)
+    # High-low wicks, faintly glowing.
+    wicks = ax.vlines(x, low_arr, h, color=colors, linewidth=1.1, zorder=2)
+    wicks.set_path_effects([pe.Stroke(linewidth=3.0, alpha=0.12), pe.Normal()])
 
-    # Open-close bodies. A zero-height (doji) body still shows via the wick.
+    # Open-close bodies with a soft drop shadow for a raised, 3D feel.
     bottoms = np.minimum(o, c)
     heights = np.abs(c - o)
-    ax.bar(
+    bars = ax.bar(
         x,
         heights,
         bottom=bottoms,
         width=width,
         color=colors,
         edgecolor=colors,
+        linewidth=0.6,
         align="center",
         zorder=3,
     )
+    shadow = [pe.withSimplePatchShadow(offset=(1.2, -1.2), shadow_rgbFace="#000000", alpha=0.5)]
+    for patch in bars.patches:
+        patch.set_path_effects(shadow)
 
     style_axes(ax, title=title, ylabel=ylabel)
-    if isinstance(df.index, pd.DatetimeIndex):
-        ax.figure.autofmt_xdate()
+    add_time_grid(ax, is_dt)
     return ax

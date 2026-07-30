@@ -5,6 +5,12 @@ All notable changes to this project are documented here. The format is based on
 [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
+### Changed
+- New dark "pro terminal" chart theme replacing the plain matplotlib look:
+  gradient backdrop, glowing lines, drop-shadowed candle bodies and titles,
+  vertical time-span grid lines, gradient fill beneath price, and a
+  CVD-validated categorical accent palette. Public function signatures are
+  unchanged; `line()` gained a `fill` toggle.
 
 ## [0.1.0] - 2026-07-23
 ### Added
