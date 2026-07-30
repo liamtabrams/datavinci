@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 ### Added
+- `datavinci.chart(source, period=...)` — a one-call front door. `source` may be
+  a **ticker symbol** (`"AAPL"`, fetched live from Yahoo Finance), a **file path**
+  (`.csv`/`.tsv`/`.parquet`/`.json`, read offline), or a **DataFrame**/**Series**
+  you already have. It auto-detects OHLC data to pick candlestick vs. line
+  (override with `kind="candle"|"line"|"ma"`), auto-titles ticker charts with the
+  symbol, and normalizes lowercase `open/high/low/close` column names.
+- `datavinci.save(ax_or_fig, path)` — saves with the dark theme background baked
+  in (no white border), with `transparent=` and `dpi=` options.
+- `datavinci.show()` — a passthrough to `pyplot.show()` so you never need to
+  import matplotlib directly.
 - Switchable chart themes via `datavinci.use_theme(...)`, with `active_theme()`
   and `available_themes()` helpers. Two themes ship: `"colorblind"` (the default)
   and `"terminal"` (opt-in neon look).
