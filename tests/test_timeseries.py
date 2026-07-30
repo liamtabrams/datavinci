@@ -25,6 +25,22 @@ def _close_figures():
     plt.close("all")
 
 
+@pytest.fixture(autouse=True)
+def _reset_theme():
+    # Theme is global state; keep tests independent of each other's switches.
+    yield
+    dv.use_theme("terminal")
+
+
+def _two_candles():
+    """A minimal frame with one up row (row 0) and one down row (row 1)."""
+    idx = pd.to_datetime(["2020-01-01", "2020-01-02"])
+    return pd.DataFrame(
+        {"Open": [10.0, 20.0], "High": [16.0, 21.0], "Low": [9.0, 14.0], "Close": [15.0, 15.0]},
+        index=idx,
+    )
+
+
 def test_version_is_string():
     assert isinstance(dv.__version__, str)
     assert dv.__version__.count(".") >= 2
@@ -90,3 +106,60 @@ def test_candlestick_empty_raises():
     empty = pd.DataFrame(columns=["Open", "High", "Low", "Close"])
     with pytest.raises(ValueError):
         dv.candlestick(empty)
+
+
+# --- Theme system -------------------------------------------------------------
+
+
+def test_available_themes_includes_builtins():
+    themes = dv.available_themes()
+    assert "terminal" in themes
+    assert "colorblind" in themes
+
+
+def test_default_active_theme_is_terminal():
+    assert dv.active_theme() == "terminal"
+
+
+def test_use_theme_unknown_raises():
+    with pytest.raises(ValueError):
+        dv.use_theme("does-not-exist")
+
+
+def test_use_theme_switches_candle_up_color():
+    df = _two_candles()
+    dv.use_theme("terminal")
+    up_terminal = tuple(dv.candlestick(df).patches[0].get_facecolor())
+    dv.use_theme("colorblind")
+    up_colorblind = tuple(dv.candlestick(df).patches[0].get_facecolor())
+    assert up_terminal != up_colorblind
+
+
+def test_colorblind_theme_draws_down_candles_hollow():
+    dv.use_theme("colorblind")
+    ax = dv.candlestick(_two_candles())
+    up_patch, down_patch = ax.patches[0], ax.patches[1]
+    assert up_patch.get_facecolor()[3] == 1.0   # up body is filled
+    assert down_patch.get_facecolor()[3] == 0.0  # down body is a hollow outline
+
+
+def test_terminal_theme_fills_both_candles():
+    dv.use_theme("terminal")
+    ax = dv.candlestick(_two_candles())
+    assert ax.patches[0].get_facecolor()[3] == 1.0
+    assert ax.patches[1].get_facecolor()[3] == 1.0
+
+
+def test_hollow_down_override_is_independent_of_theme():
+    # Explicit arg wins even under the filled default theme.
+    dv.use_theme("terminal")
+    ax = dv.candlestick(_two_candles(), hollow_down=True)
+    assert ax.patches[1].get_facecolor()[3] == 0.0
+
+
+def test_line_palette_follows_active_theme(ohlc):
+    dv.use_theme("terminal")
+    color_terminal = dv.line(ohlc["Close"]).lines[0].get_color()
+    dv.use_theme("colorblind")
+    color_colorblind = dv.line(ohlc["Close"]).lines[0].get_color()
+    assert color_terminal != color_colorblind

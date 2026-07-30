@@ -20,15 +20,16 @@ import pandas as pd
 from matplotlib.axes import Axes
 
 from ._theme import (
-    DOWN_COLOR,
     INK,
-    PALETTE,
-    UP_COLOR,
     add_time_grid,
     glow,
     gradient_fill,
     style_axes,
     style_legend,
+    theme_down,
+    theme_hollow_down,
+    theme_palette,
+    theme_up,
 )
 
 __all__ = ["line", "candlestick", "moving_average"]
@@ -109,9 +110,10 @@ def line(
             raise KeyError(f"Columns not found in data: {missing}")
         frame = frame[list(columns)]
 
+    pal = theme_palette()
     x, is_dt = _x_numeric(frame.index)
     for i, col in enumerate(frame.columns):
-        color = PALETTE[i % len(PALETTE)]
+        color = pal[i % len(pal)]
         y = frame[col].to_numpy(dtype=float)
         (ln,) = ax.plot(x, y, label=str(col), color=color, linewidth=2.0, solid_capstyle="round")
         ln.set_path_effects(glow(color, base_lw=2.0))
@@ -119,7 +121,7 @@ def line(
     if is_dt:
         ax.xaxis_date()
     if fill and frame.shape[1] == 1:
-        gradient_fill(ax, x, frame.iloc[:, 0].to_numpy(dtype=float), PALETTE[0])
+        gradient_fill(ax, x, frame.iloc[:, 0].to_numpy(dtype=float), pal[0])
 
     style_axes(ax, title=title, xlabel=xlabel, ylabel=ylabel)
     add_time_grid(ax, is_dt)
@@ -158,15 +160,16 @@ def moving_average(
     x, is_dt = _x_numeric(series.index)
     y = series.to_numpy()
 
+    pal = theme_palette()
     # Underlying price: bright neutral ink with a gradient fill beneath.
     (price_line,) = ax.plot(x, y, label=price_label, color=INK, linewidth=1.8)
     price_line.set_path_effects(glow(INK, base_lw=1.8, layers=3))
-    gradient_fill(ax, x, y, PALETTE[0], alpha=0.28)
+    gradient_fill(ax, x, y, pal[0], alpha=0.28)
 
     for i, w in enumerate(windows):
         if w < 1:
             raise ValueError(f"Moving-average window must be >= 1, got {w}.")
-        color = PALETTE[i % len(PALETTE)]
+        color = pal[i % len(pal)]
         sma = series.rolling(window=w, min_periods=1).mean().to_numpy()
         (ln,) = ax.plot(x, sma, label=f"SMA {w}", color=color, linewidth=2.0)
         ln.set_path_effects(glow(color, base_lw=2.0))
@@ -187,8 +190,9 @@ def candlestick(
     low: str = "Low",
     close: str = "Close",
     ax: Axes | None = None,
-    up_color: str = UP_COLOR,
-    down_color: str = DOWN_COLOR,
+    up_color: str | None = None,
+    down_color: str | None = None,
+    hollow_down: bool | None = None,
     width: float = 0.7,
     title: str | None = None,
     ylabel: str | None = "Price",
@@ -206,7 +210,13 @@ def candlestick(
     open, high, low, close:
         Column names for each OHLC field.
     up_color, down_color:
-        Colors for candles that closed up vs. down.
+        Colors for candles that closed up vs. down. Default to the active theme's
+        semantic colors (see :func:`datavinci.use_theme`).
+    hollow_down:
+        Draw down candles as hollow outlines instead of filled bodies. This adds a
+        redundant, hue-independent channel so gain/loss is legible under color-vision
+        deficiency or in grayscale. Defaults to the active theme (``True`` under the
+        ``"colorblind"`` theme, ``False`` otherwise).
     width:
         Candle body width. For a DatetimeIndex this is measured in days.
 
@@ -214,6 +224,9 @@ def candlestick(
     -------
     matplotlib.axes.Axes
     """
+    up_color = theme_up() if up_color is None else up_color
+    down_color = theme_down() if down_color is None else down_color
+    hollow_down = theme_hollow_down() if hollow_down is None else hollow_down
     required = {open, high, low, close}
     missing = required - set(df.columns)
     if missing:
@@ -233,29 +246,35 @@ def candlestick(
         ax.xaxis_date()
 
     up = c >= o
-    colors = np.where(up, up_color, down_color)
 
-    # High-low wicks, faintly glowing.
-    wicks = ax.vlines(x, low_arr, h, color=colors, linewidth=1.1, zorder=2)
+    # High-low wicks, faintly glowing. Wick color still follows direction.
+    wick_colors = np.where(up, up_color, down_color)
+    wicks = ax.vlines(x, low_arr, h, color=wick_colors, linewidth=1.1, zorder=2)
     wicks.set_path_effects([pe.Stroke(linewidth=3.0, alpha=0.12), pe.Normal()])
 
-    # Open-close bodies with a soft drop shadow for a raised, 3D feel.
+    # Open-close bodies. Up candles are filled with a soft drop shadow for a raised,
+    # 3D feel. Down candles are filled by default, or drawn as hollow outlines when
+    # hollow_down is set — a redundant, hue-independent gain/loss channel that stays
+    # legible under color-vision deficiency and in grayscale.
     bottoms = np.minimum(o, c)
     heights = np.abs(c - o)
-    bars = ax.bar(
-        x,
-        heights,
-        bottom=bottoms,
-        width=width,
-        color=colors,
-        edgecolor=colors,
-        linewidth=0.6,
-        align="center",
-        zorder=3,
-    )
+    bars = ax.bar(x, heights, bottom=bottoms, width=width, align="center", zorder=3)
     shadow = [pe.withSimplePatchShadow(offset=(1.2, -1.2), shadow_rgbFace="#000000", alpha=0.5)]
-    for patch in bars.patches:
-        patch.set_path_effects(shadow)
+    for patch, is_up in zip(bars.patches, up):
+        if is_up:
+            patch.set_facecolor(up_color)
+            patch.set_edgecolor(up_color)
+            patch.set_linewidth(0.6)
+            patch.set_path_effects(shadow)
+        elif hollow_down:
+            patch.set_facecolor("none")
+            patch.set_edgecolor(down_color)
+            patch.set_linewidth(1.5)
+        else:
+            patch.set_facecolor(down_color)
+            patch.set_edgecolor(down_color)
+            patch.set_linewidth(0.6)
+            patch.set_path_effects(shadow)
 
     style_axes(ax, title=title, ylabel=ylabel)
     add_time_grid(ax, is_dt)

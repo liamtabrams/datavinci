@@ -25,23 +25,99 @@ INK_MUTED = "#8a97a8"   # axis ticks / secondary text
 GRID = "#1d2735"        # horizontal price grid (recessive)
 GRID_TIME = "#28374b"   # vertical time-span grid (a touch brighter)
 
-# --- Semantic price colors (finance convention: green up, red down) -----------
-# Note: a green/red pair is not colorblind-distinguishable on the red-green axis;
-# candles add redundant structural encoding (body direction). A colorblind-safe
-# variant can be swapped in later.
-UP_COLOR = "#26de81"
-DOWN_COLOR = "#ff4d5e"
+# --- Themes -------------------------------------------------------------------
+# A theme bundles the semantic up/down price colors, the categorical accent order,
+# and whether candlesticks add a redundant *structural* channel (hollow bodies for
+# down candles) so direction survives independent of hue.
+#
+# Two themes ship:
+#   "terminal"   — the default neon look: green up / red down, bright accents.
+#   "colorblind" — CVD-safe: blue up / red down (keeps the red=loss convention but
+#                  moves "up" off the red-green confusion axis), the skill's
+#                  validator-passing categorical order, and hollow down candles so
+#                  direction reads even in grayscale.
+#
+# Every palette below was checked with the dataviz skill's validate_palette.js
+# against datavinci's dark surfaces (see CHANGELOG / tests). Categorical order is
+# the CVD-safety mechanism, so the sequences are fixed, not cosmetic — reordering
+# can break adjacent-pair separation.
+THEMES = {
+    "terminal": {
+        "up": "#26de81",      # green
+        "down": "#ff4d5e",    # red
+        # Cyan, amber, green, pink, violet, orange. Adjacent-pair CVD sits in the
+        # 6-8 "floor" band (pink<->green dE 6.6), which is legal here because line
+        # charts always carry a legend (secondary encoding). Prefer "colorblind"
+        # when hue must stand alone.
+        "palette": ["#38bdf8", "#fbbf24", "#34d399", "#f472b6", "#a78bfa", "#fb923c"],
+        "hollow_down": False,
+    },
+    "colorblind": {
+        "up": "#3b9dff",      # blue  (blue<->red CVD dE 24.2, vs 10.5 for green/red)
+        "down": "#f2545b",    # red   (keeps the finance "loss = red" convention)
+        # Skill-canonical order (blue, orange, aqua, yellow, magenta, green):
+        # passes every gate (worst adjacent CVD dE 8.4) on datavinci's dark surface.
+        "palette": ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300"],
+        "hollow_down": True,
+    },
+}
 
-# --- Categorical accents (validated CVD-safe on the dark surface) -------------
-# Cyan, amber, green, pink, violet, orange — assigned in fixed order, not cycled.
-PALETTE = [
-    "#38bdf8",  # cyan
-    "#fbbf24",  # amber
-    "#34d399",  # green
-    "#f472b6",  # pink
-    "#a78bfa",  # violet
-    "#fb923c",  # orange
-]
+_DEFAULT_THEME = "terminal"
+_active_theme = _DEFAULT_THEME
+
+
+def use_theme(name: str) -> None:
+    """Switch the active chart theme for subsequent plots.
+
+    Parameters
+    ----------
+    name:
+        ``"terminal"`` (default neon look) or ``"colorblind"`` (CVD-safe blue/red
+        candles with a redundant hollow-body channel and a validator-passing accent
+        palette). Raises ``ValueError`` for an unknown name.
+    """
+    if name not in THEMES:
+        raise ValueError(f"Unknown theme {name!r}. Available: {sorted(THEMES)}.")
+    global _active_theme
+    _active_theme = name
+
+
+def active_theme() -> str:
+    """Return the name of the currently active theme."""
+    return _active_theme
+
+
+def available_themes() -> list[str]:
+    """Return the list of built-in theme names."""
+    return sorted(THEMES)
+
+
+def theme_up() -> str:
+    """Up/gain color for the active theme."""
+    return THEMES[_active_theme]["up"]
+
+
+def theme_down() -> str:
+    """Down/loss color for the active theme."""
+    return THEMES[_active_theme]["down"]
+
+
+def theme_palette() -> list[str]:
+    """Categorical accent order for the active theme."""
+    return THEMES[_active_theme]["palette"]
+
+
+def theme_hollow_down() -> bool:
+    """Whether the active theme draws down candles hollow (redundant channel)."""
+    return THEMES[_active_theme]["hollow_down"]
+
+
+# Backwards-compatible constants: the *default* theme's values. These do not track
+# use_theme() at runtime — the theme_*() accessors do. Kept so external callers
+# that imported the raw colors still work.
+UP_COLOR = THEMES[_DEFAULT_THEME]["up"]
+DOWN_COLOR = THEMES[_DEFAULT_THEME]["down"]
+PALETTE = THEMES[_DEFAULT_THEME]["palette"]
 
 _BG_CMAP = LinearSegmentedColormap.from_list("dv_backdrop", [BG_BOTTOM, BG_TOP])
 

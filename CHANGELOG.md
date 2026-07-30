@@ -5,6 +5,20 @@ All notable changes to this project are documented here. The format is based on
 [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
+### Added
+- Switchable chart themes via `datavinci.use_theme(...)`, with `active_theme()`
+  and `available_themes()` helpers. Two themes ship: `"terminal"` (default) and
+  `"colorblind"`.
+- `"colorblind"` theme for color-vision-deficiency (CVD) safety: blue-up /
+  red-down candles (keeps the finance "loss = red" convention while moving "up"
+  off the red-green confusion axis — CVD ΔE 24.2 vs 10.5 for green/red), a
+  validator-passing categorical accent palette, and **hollow down candles** —
+  a redundant, hue-independent structural channel so gain/loss stays legible
+  even in grayscale. Palettes were checked with the dataviz validator against
+  datavinci's dark surfaces.
+- `candlestick()` gained a `hollow_down` toggle to enable the hollow-body channel
+  independently of the active theme.
+
 ### Changed
 - New dark "pro terminal" chart theme replacing the plain matplotlib look:
   gradient backdrop, glowing lines, drop-shadowed candle bodies and titles,

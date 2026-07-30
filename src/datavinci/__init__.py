@@ -10,10 +10,24 @@ Quick start
 >>> from datavinci.data import sample_ohlc
 >>> df = sample_ohlc(periods=120)          # synthetic OHLC data, no network needed
 >>> ax = dv.candlestick(df, title="Demo")  # returns a matplotlib Axes
+
+To make charts colorblind-safe, switch themes before plotting:
+
+>>> dv.use_theme("colorblind")             # blue/red hollow candles, CVD-safe accents
+>>> ax = dv.candlestick(df, title="Demo")
 """
 
+from ._theme import active_theme, available_themes, use_theme
 from .timeseries import candlestick, line, moving_average
 
 __version__ = "0.1.0"
 
-__all__ = ["candlestick", "line", "moving_average", "__version__"]
+__all__ = [
+    "candlestick",
+    "line",
+    "moving_average",
+    "use_theme",
+    "active_theme",
+    "available_themes",
+    "__version__",
+]
