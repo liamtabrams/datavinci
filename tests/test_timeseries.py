@@ -29,7 +29,7 @@ def _close_figures():
 def _reset_theme():
     # Theme is global state; keep tests independent of each other's switches.
     yield
-    dv.use_theme("terminal")
+    dv.use_theme("colorblind")
 
 
 def _two_candles():
@@ -117,8 +117,8 @@ def test_available_themes_includes_builtins():
     assert "colorblind" in themes
 
 
-def test_default_active_theme_is_terminal():
-    assert dv.active_theme() == "terminal"
+def test_default_active_theme_is_colorblind():
+    assert dv.active_theme() == "colorblind"
 
 
 def test_use_theme_unknown_raises():

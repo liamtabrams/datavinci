@@ -31,11 +31,12 @@ GRID_TIME = "#28374b"   # vertical time-span grid (a touch brighter)
 # down candles) so direction survives independent of hue.
 #
 # Two themes ship:
-#   "terminal"   — the default neon look: green up / red down, bright accents.
-#   "colorblind" — CVD-safe: blue up / red down (keeps the red=loss convention but
-#                  moves "up" off the red-green confusion axis), the skill's
-#                  validator-passing categorical order, and hollow down candles so
-#                  direction reads even in grayscale.
+#   "colorblind" — the DEFAULT. CVD-safe: blue up / red down (keeps the red=loss
+#                  convention but moves "up" off the red-green confusion axis), the
+#                  skill's validator-passing categorical order, and hollow down
+#                  candles so direction reads even in grayscale.
+#   "terminal"   — the neon look: green up / red down, bright accents. Opt in with
+#                  use_theme("terminal").
 #
 # Every palette below was checked with the dataviz skill's validate_palette.js
 # against datavinci's dark surfaces (see CHANGELOG / tests). Categorical order is
@@ -62,7 +63,7 @@ THEMES = {
     },
 }
 
-_DEFAULT_THEME = "terminal"
+_DEFAULT_THEME = "colorblind"
 _active_theme = _DEFAULT_THEME
 
 
@@ -72,9 +73,10 @@ def use_theme(name: str) -> None:
     Parameters
     ----------
     name:
-        ``"terminal"`` (default neon look) or ``"colorblind"`` (CVD-safe blue/red
-        candles with a redundant hollow-body channel and a validator-passing accent
-        palette). Raises ``ValueError`` for an unknown name.
+        ``"colorblind"`` (the default: CVD-safe blue/red candles with a redundant
+        hollow-body channel and a validator-passing accent palette) or ``"terminal"``
+        (the neon look: green up / red down). Raises ``ValueError`` for an unknown
+        name.
     """
     if name not in THEMES:
         raise ValueError(f"Unknown theme {name!r}. Available: {sorted(THEMES)}.")

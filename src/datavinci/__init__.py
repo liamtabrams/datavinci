@@ -11,9 +11,10 @@ Quick start
 >>> df = sample_ohlc(periods=120)          # synthetic OHLC data, no network needed
 >>> ax = dv.candlestick(df, title="Demo")  # returns a matplotlib Axes
 
-To make charts colorblind-safe, switch themes before plotting:
+Charts are colorblind-safe by default (blue/red hollow candles, CVD-validated
+accents). For the brighter green/red neon look, switch themes before plotting:
 
->>> dv.use_theme("colorblind")             # blue/red hollow candles, CVD-safe accents
+>>> dv.use_theme("terminal")
 >>> ax = dv.candlestick(df, title="Demo")
 """
 

@@ -7,8 +7,8 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 ### Added
 - Switchable chart themes via `datavinci.use_theme(...)`, with `active_theme()`
-  and `available_themes()` helpers. Two themes ship: `"terminal"` (default) and
-  `"colorblind"`.
+  and `available_themes()` helpers. Two themes ship: `"colorblind"` (the default)
+  and `"terminal"` (opt-in neon look).
 - `"colorblind"` theme for color-vision-deficiency (CVD) safety: blue-up /
   red-down candles (keeps the finance "loss = red" convention while moving "up"
   off the red-green confusion axis — CVD ΔE 24.2 vs 10.5 for green/red), a
