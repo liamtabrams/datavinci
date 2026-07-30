@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
 import pytest  # noqa: E402
 from matplotlib.axes import Axes  # noqa: E402
+from matplotlib.figure import Figure  # noqa: E402
 
 import datavinci as dv  # noqa: E402
 import datavinci.convenience as convenience  # noqa: E402
@@ -122,4 +123,57 @@ def test_save_writes_a_nonempty_file(tmp_path, ohlc):
     out = tmp_path / "chart.png"
     returned = dv.save(ax, str(out))
     assert returned == str(out)
+    assert os.path.getsize(out) > 0
+
+
+def test_chart_save_kwarg_writes_file(tmp_path, ohlc):
+    out = tmp_path / "inline.png"
+    ax = dv.chart(ohlc, save=str(out))
+    assert isinstance(ax, Axes)      # still returns the Axes
+    assert os.path.getsize(out) > 0  # and wrote the file
+
+
+# --- dashboard ----------------------------------------------------------------
+
+
+def test_dashboard_has_two_panels_with_volume(ohlc):
+    fig = dv.dashboard(ohlc, sma=(10, 20))
+    assert isinstance(fig, Figure)
+    assert len(fig.axes) == 2  # price + volume panels
+
+
+def test_dashboard_price_panel_has_candles_and_sma(ohlc):
+    fig = dv.dashboard(ohlc, sma=(10, 20))
+    price_ax = fig.axes[0]
+    assert len(price_ax.patches) == len(ohlc)  # one candle body per row
+    assert len(price_ax.lines) == 2            # two SMA overlays
+
+
+def test_dashboard_volume_bars_count(ohlc):
+    fig = dv.dashboard(ohlc, sma=())
+    vol_ax = fig.axes[1]
+    # A volume bar per row (plus matplotlib may add container patches, so >=).
+    assert len(vol_ax.patches) == len(ohlc)
+
+
+def test_dashboard_without_volume_is_single_panel(ohlc):
+    fig = dv.dashboard(ohlc, volume=False)
+    assert len(fig.axes) == 1
+
+
+def test_dashboard_drops_volume_when_column_absent(ohlc):
+    # No Volume column → volume panel is silently skipped even if requested.
+    fig = dv.dashboard(ohlc.drop(columns=["Volume"]), volume=True)
+    assert len(fig.axes) == 1
+
+
+def test_dashboard_requires_ohlc(ohlc):
+    with pytest.raises(ValueError):
+        dv.dashboard(ohlc[["Close"]])
+
+
+def test_dashboard_save_kwarg_writes_file(tmp_path, ohlc):
+    out = tmp_path / "dash.png"
+    fig = dv.dashboard(ohlc, save=str(out))
+    assert isinstance(fig, Figure)
     assert os.path.getsize(out) > 0

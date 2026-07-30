@@ -28,13 +28,14 @@ accents). For the brighter green/red neon look, switch themes before plotting:
 """
 
 from ._theme import active_theme, available_themes, use_theme
-from .convenience import chart, save, show
+from .convenience import chart, dashboard, save, show
 from .timeseries import candlestick, line, moving_average
 
 __version__ = "0.1.0"
 
 __all__ = [
     "chart",
+    "dashboard",
     "save",
     "show",
     "candlestick",

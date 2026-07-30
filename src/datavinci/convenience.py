@@ -12,14 +12,25 @@ from __future__ import annotations
 import os
 from collections.abc import Sequence
 
+import numpy as np
 import pandas as pd
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+from matplotlib.ticker import FuncFormatter
 
+from ._theme import (
+    add_time_grid,
+    glow,
+    style_axes,
+    style_legend,
+    theme_down,
+    theme_palette,
+    theme_up,
+)
 from .data import load_ticker
-from .timeseries import candlestick, line, moving_average
+from .timeseries import _x_numeric, candlestick, line, moving_average
 
-__all__ = ["chart", "save", "show"]
+__all__ = ["chart", "dashboard", "save", "show"]
 
 # File extensions we know how to read directly. A string source with one of these
 # suffixes (or that exists on disk) is treated as a file rather than a ticker.
@@ -141,6 +152,7 @@ def chart(
     windows: Sequence[int] = (20, 50),
     ax: Axes | None = None,
     title: str | None = None,
+    save: str | None = None,
     **kwargs,
 ) -> Axes:
     """Draw a styled chart from a ticker symbol, file, DataFrame, or Series.
@@ -170,6 +182,9 @@ def chart(
     ax, title:
         Optional Axes to draw on and an explicit title. If ``title`` is omitted, a
         ticker source is titled with its symbol.
+    save:
+        If given, also write the chart to this path (via :func:`save`, so the dark
+        background is preserved) before returning.
     **kwargs:
         Forwarded to the underlying plot function (``candlestick`` / ``line`` /
         ``moving_average``).
@@ -181,9 +196,10 @@ def chart(
     Examples
     --------
     >>> import datavinci as dv
-    >>> dv.chart("AAPL", "6mo")                 # live candles, one line  # doctest: +SKIP
-    >>> dv.chart("prices.csv", kind="line")     # from a file            # doctest: +SKIP
-    >>> dv.chart(my_df)                         # data you already have  # doctest: +SKIP
+    >>> dv.chart("AAPL", "6mo")                     # live candles           # doctest: +SKIP
+    >>> dv.chart("AAPL", save="aapl.png")           # fetch, draw, and save  # doctest: +SKIP
+    >>> dv.chart("prices.csv", kind="line")         # from a file            # doctest: +SKIP
+    >>> dv.chart(my_df)                             # data you already have  # doctest: +SKIP
     """
     data, inferred_title = _resolve_source(source, period, interval)
     if title is None:
@@ -196,10 +212,15 @@ def chart(
                 "kind='candle' needs OHLC columns (Open/High/Low/Close); the source "
                 "doesn't have them. Try kind='line'."
             )
-        return candlestick(data, ax=ax, title=title, **kwargs)
-    if kind == "ma":
-        return moving_average(_close_series(data), windows=windows, ax=ax, title=title, **kwargs)
-    return line(data, ax=ax, title=title, **kwargs)
+        ax = candlestick(data, ax=ax, title=title, **kwargs)
+    elif kind == "ma":
+        ax = moving_average(_close_series(data), windows=windows, ax=ax, title=title, **kwargs)
+    else:
+        ax = line(data, ax=ax, title=title, **kwargs)
+
+    if save is not None:
+        _save_fig(ax, save)
+    return ax
 
 
 def save(target: Axes | Figure, path: str, *, dpi: int = 110, transparent: bool = False) -> str:
@@ -236,9 +257,140 @@ def save(target: Axes | Figure, path: str, *, dpi: int = 110, transparent: bool 
     return path
 
 
+# Private alias so chart(..., save=...) can call the module function even though
+# its `save` parameter shadows the name locally.
+_save_fig = save
+
+
 def show() -> None:
     """Display all open figures. A thin passthrough to ``matplotlib.pyplot.show``
     so you don't have to import matplotlib just to see your chart."""
     import matplotlib.pyplot as plt
 
     plt.show()
+
+
+def _human_volume(value: float, _pos=None) -> str:
+    """Format a volume tick as e.g. 1.2M / 850K for a compact y-axis."""
+    value = float(value)
+    for unit in ("", "K", "M", "B"):
+        if abs(value) < 1000:
+            return f"{value:.0f}{unit}" if unit else f"{value:.0f}"
+        value /= 1000
+    return f"{value:.0f}T"
+
+
+def _has_column(df: pd.DataFrame, name: str) -> str | None:
+    """Return the actual column matching ``name`` case-insensitively, or None."""
+    for col in df.columns:
+        if isinstance(col, str) and col.lower() == name.lower():
+            return col
+    return None
+
+
+def dashboard(
+    source: str | pd.DataFrame,
+    period: str = "1y",
+    *,
+    interval: str = "1d",
+    sma: Sequence[int] = (20, 50),
+    volume: bool = True,
+    title: str | None = None,
+    figsize: tuple[float, float] = (12, 8),
+    height_ratios: tuple[float, float] = (3, 1),
+    save: str | None = None,
+) -> Figure:
+    """Build a stacked price + volume dashboard from a ticker, file, or DataFrame.
+
+    The top panel is a candlestick chart (optionally with moving-average overlays);
+    the bottom panel is a volume bar chart colored by up/down day. The two panels
+    share an aligned x-axis. Everything uses the active theme.
+
+    Parameters
+    ----------
+    source:
+        A ticker symbol (fetched live), a file path, or an OHLC DataFrame — same
+        rules as :func:`chart`. Must resolve to OHLC data.
+    period, interval:
+        yfinance strings, used only when ``source`` is a ticker symbol.
+    sma:
+        Moving-average windows to overlay on the price panel. Pass ``()`` for none.
+    volume:
+        Show the volume panel. Silently ignored if the data has no ``Volume``
+        column (the result is then a single price panel).
+    title:
+        Title for the price panel. Ticker sources default to their symbol.
+    figsize, height_ratios:
+        Overall figure size and the price:volume panel height ratio.
+    save:
+        If given, also write the figure to this path (dark background preserved).
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The figure containing the panels. Pass it to :func:`save`, or grab
+        ``fig.axes`` to customize further.
+
+    Examples
+    --------
+    >>> import datavinci as dv
+    >>> dv.dashboard("AAPL", "6mo")                 # doctest: +SKIP
+    >>> dv.dashboard("AAPL", save="aapl.png")       # doctest: +SKIP
+    """
+    import matplotlib.pyplot as plt
+
+    data, inferred_title = _resolve_source(source, period, interval)
+    if title is None:
+        title = inferred_title
+    if not (isinstance(data, pd.DataFrame) and _has_ohlc(data)):
+        raise ValueError(
+            "dashboard() needs OHLC data (Open/High/Low/Close). Use chart() for a "
+            "plain line series."
+        )
+
+    vol_col = _has_column(data, "Volume") if volume else None
+    show_volume = vol_col is not None
+
+    if show_volume:
+        fig, (ax_price, ax_vol) = plt.subplots(
+            2, 1, sharex=True, figsize=figsize,
+            gridspec_kw={"height_ratios": list(height_ratios), "hspace": 0.08},
+        )
+    else:
+        fig, ax_price = plt.subplots(figsize=figsize)
+        ax_vol = None
+
+    # --- Price panel: candles + optional SMA overlays -------------------------
+    candlestick(data, ax=ax_price, title=title)
+
+    x, is_dt = _x_numeric(data.index)
+    if sma:
+        pal = theme_palette()
+        close = data["Close"].astype(float)
+        for i, w in enumerate(sma):
+            if w < 1:
+                raise ValueError(f"Moving-average window must be >= 1, got {w}.")
+            color = pal[i % len(pal)]
+            sma_vals = close.rolling(window=w, min_periods=1).mean().to_numpy()
+            (ln,) = ax_price.plot(x, sma_vals, color=color, linewidth=1.6, label=f"SMA {w}")
+            ln.set_path_effects(glow(color, base_lw=1.6, layers=3))
+        style_legend(ax_price, loc="best")
+
+    # --- Volume panel ---------------------------------------------------------
+    if show_volume:
+        o = data["Open"].to_numpy(dtype=float)
+        c = data["Close"].to_numpy(dtype=float)
+        up = c >= o
+        colors = np.where(up, theme_up(), theme_down())
+        ax_vol.bar(x, data[vol_col].to_numpy(dtype=float), width=0.7, color=colors, align="center")
+        if is_dt:
+            ax_vol.xaxis_date()
+        style_axes(ax_vol, ylabel="Volume")
+        add_time_grid(ax_vol, is_dt)
+        ax_vol.yaxis.set_major_formatter(FuncFormatter(_human_volume))
+        # Keep the date labels only on the bottom (shared) axis.
+        ax_price.tick_params(labelbottom=False)
+
+    if save is not None:
+        _save_fig(fig, save)
+    return fig

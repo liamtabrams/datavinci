@@ -49,8 +49,9 @@ def test_version_is_string():
 def test_sample_ohlc_shape_and_columns():
     df = sample_ohlc(periods=50, seed=1)
     assert len(df) == 50
-    assert list(df.columns) == ["Open", "High", "Low", "Close"]
+    assert list(df.columns) == ["Open", "High", "Low", "Close", "Volume"]
     assert isinstance(df.index, pd.DatetimeIndex)
+    assert (df["Volume"] > 0).all()
 
 
 def test_sample_ohlc_high_low_invariants(ohlc):

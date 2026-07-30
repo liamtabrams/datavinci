@@ -44,7 +44,8 @@ def sample_ohlc(
     Returns
     -------
     pandas.DataFrame
-        Columns: ``Open``, ``High``, ``Low``, ``Close``.
+        Columns: ``Open``, ``High``, ``Low``, ``Close``, ``Volume`` — matching the
+        shape of Yahoo Finance data.
     """
     if periods < 1:
         raise ValueError(f"periods must be >= 1, got {periods}.")
@@ -64,8 +65,19 @@ def sample_ohlc(
     high = body_high * (1 + np.abs(rng.normal(0, volatility / 2, size=periods)))
     low = body_low * (1 - np.abs(rng.normal(0, volatility / 2, size=periods)))
 
+    # Volume: a base level that swells on bigger moves, with lognormal noise so it
+    # is always positive and occasionally spikes — like real turnover.
+    move = np.abs(returns) / volatility  # ~1 on an average day
+    volume = 1_000_000 * (0.6 + 0.8 * move) * rng.lognormal(0, 0.3, size=periods)
+
     return pd.DataFrame(
-        {"Open": open_, "High": high, "Low": low, "Close": close},
+        {
+            "Open": open_,
+            "High": high,
+            "Low": low,
+            "Close": close,
+            "Volume": volume.round().astype(int),
+        },
         index=index,
     )
 
