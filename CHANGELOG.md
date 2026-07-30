@@ -38,6 +38,8 @@ All notable changes to this project are documented here. The format is based on
   independently of the active theme.
 
 ### Changed
+- Softened the line glow to a subtle rim-light (was a heavier neon bloom). Tunable
+  via `glow()`'s new `layers`/`spread`/`alpha_step` parameters.
 - New dark "pro terminal" chart theme replacing the plain matplotlib look:
   gradient backdrop, glowing lines, drop-shadowed candle bodies and titles,
   vertical time-span grid lines, gradient fill beneath price, and a

@@ -132,13 +132,21 @@ def text_shadow(offset: tuple[float, float] = (1.4, -1.4), alpha: float = 0.6):
     return [pe.withSimplePatchShadow(offset=offset, shadow_rgbFace="#000000", alpha=alpha)]
 
 
-def glow(color: str, base_lw: float, layers: int = 4, spread: float = 2.4):
-    """Path effects that wrap a line in a soft neon glow of its own color.
+def glow(
+    color: str,
+    base_lw: float,
+    layers: int = 3,
+    spread: float = 1.5,
+    alpha_step: float = 0.03,
+):
+    """Path effects that wrap a line in a soft glow of its own color.
 
     Wide, faint strokes are drawn first (the halo), then the crisp line on top.
+    Defaults are tuned for a subtle rim-light — a hint of depth, not a neon bloom.
+    Raise ``layers``/``spread``/``alpha_step`` for a stronger halo.
     """
     effects = [
-        pe.Stroke(linewidth=base_lw + i * spread, foreground=color, alpha=0.05 * i)
+        pe.Stroke(linewidth=base_lw + i * spread, foreground=color, alpha=alpha_step * i)
         for i in range(layers, 0, -1)
     ]
     effects.append(pe.Normal())
