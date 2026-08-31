@@ -16,9 +16,9 @@ Real data — a built-in ~30-stock universe, last 20 years (needs
 
     python examples/strategy_study.py
 
-Your own tickers::
+Your own tickers (and a different window)::
 
-    python examples/strategy_study.py --tickers AAPL MSFT KO JPM XOM --period 20y
+    python examples/strategy_study.py --tickers AAPL MSFT KO JPM XOM --years 15
 
 Offline (synthetic universe — for testing the script with no network)::
 
@@ -90,22 +90,33 @@ def synthetic_universe(n: int, bars: int) -> dict[str, pd.DataFrame]:
 
 
 def load_universe(
-    tickers: list[str], period: str, interval: str, min_bars: int
+    tickers: list[str], years: int, interval: str, min_bars: int, pause: float
 ) -> dict[str, pd.DataFrame]:
-    """Fetch real price data for each ticker, skipping any that fail or are short."""
+    """Fetch ~``years`` of real price data per ticker, skipping any that fail.
+
+    Uses a start date (not an invalid ``"20y"`` period) so long windows work, and
+    pauses briefly between requests to avoid Yahoo rate-limiting.
+    """
+    import time
+    from datetime import date
+
     from datavinci.data import load_ticker
 
+    start = (date.today() - pd.DateOffset(years=years)).strftime("%Y-%m-%d")
     data = {}
-    for sym in tickers:
+    for i, sym in enumerate(tickers):
         try:
-            df = load_ticker(sym, period=period, interval=interval)
-        except Exception as exc:  # network error, bad symbol, delisted, ...
+            # load_ticker retries internally on transient/empty responses.
+            df = load_ticker(sym, start=start, interval=interval)
+        except Exception as exc:  # network error, bad symbol, persistent rate-limit
             print(f"  ! skipping {sym}: {exc}")
             continue
         if len(df) < min_bars:
             print(f"  ! skipping {sym}: only {len(df)} bars (< {min_bars})")
             continue
         data[sym] = df
+        if pause and i < len(tickers) - 1:
+            time.sleep(pause)  # be gentle on the API between symbols
     return data
 
 
@@ -196,8 +207,10 @@ def plot_summary(summary: pd.DataFrame, n_stocks: int, outpath: str) -> None:
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Study strategies across many stocks.")
     parser.add_argument("--tickers", nargs="+", help="Tickers to use (default: built-in ~34).")
-    parser.add_argument("--period", default="20y", help="History length (default 20y).")
+    parser.add_argument("--years", type=int, default=20, help="Years of history (default 20).")
     parser.add_argument("--interval", default="1d", help="Bar interval (default 1d).")
+    parser.add_argument("--pause", type=float, default=0.5,
+                        help="Seconds to wait between ticker fetches (rate-limit relief).")
     parser.add_argument("--synthetic", type=int, metavar="N", help="Use N synthetic stocks.")
     parser.add_argument("--bars", type=int, default=5040, help="Synthetic history length (~20y).")
     parser.add_argument("--min-bars", type=int, default=252, help="Skip stocks shorter than this.")
@@ -213,12 +226,13 @@ def main(argv: list[str] | None = None) -> None:
         data = synthetic_universe(args.synthetic, args.bars)
     else:
         tickers = args.tickers or DEFAULT_UNIVERSE
-        print(f"Fetching {len(tickers)} tickers, period={args.period} (this can take a minute)...")
-        data = load_universe(tickers, args.period, args.interval, args.min_bars)
+        print(f"Fetching {len(tickers)} tickers, last {args.years}y (this can take a minute)...")
+        data = load_universe(tickers, args.years, args.interval, args.min_bars, args.pause)
         if not data:
             print("\nNo data could be fetched (no network, or yfinance not installed?).")
             print("Try the offline mode:  python examples/strategy_study.py --synthetic 30")
             return
+        print(f"  fetched {len(data)} of {len(tickers)} tickers.")
 
     print(f"Studying {len(data)} stocks across {len(STRATEGIES)} strategies...\n")
 

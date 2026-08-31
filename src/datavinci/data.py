@@ -87,6 +87,9 @@ def load_ticker(
     *,
     period: str = "1y",
     interval: str = "1d",
+    start: str | None = None,
+    end: str | None = None,
+    retries: int = 3,
 ) -> pd.DataFrame:
     """Download OHLC data for ``symbol`` from Yahoo Finance.
 
@@ -99,9 +102,20 @@ def load_ticker(
     symbol:
         Ticker symbol, e.g. ``"AAPL"``.
     period:
-        yfinance period string (e.g. ``"1mo"``, ``"1y"``, ``"max"``).
+        yfinance period string. Must be one of ``1d, 5d, 1mo, 3mo, 6mo, 1y, 2y,
+        5y, 10y, ytd, max`` — note there is **no** ``20y``; for longer windows
+        pass ``start=`` (e.g. ``start="2005-01-01"``) or ``period="max"``.
+        Ignored when ``start`` is given.
     interval:
         yfinance interval string (e.g. ``"1d"``, ``"1h"``).
+    start, end:
+        Optional ``YYYY-MM-DD`` date range. When ``start`` is given it takes
+        precedence over ``period`` — this is the reliable way to get many years.
+    retries:
+        How many times to retry a request that fails or comes back empty. Yahoo
+        rate-limits bursts of requests, so a valid symbol can transiently return
+        no data (yfinance then wrongly reports "possibly delisted"); retrying with
+        a short backoff fixes that.
 
     Returns
     -------
@@ -116,10 +130,34 @@ def load_ticker(
             '    pip install "datavinci[finance]"'
         ) from exc
 
-    df = yf.Ticker(symbol).history(period=period, interval=interval)
-    if df.empty:
+    valid_periods = {"1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"}
+    if start is None and period not in valid_periods:
         raise ValueError(
-            f"No data returned for symbol {symbol!r} (period={period!r}, "
-            f"interval={interval!r}). Check the symbol and your connection."
+            f"Invalid period {period!r}. Valid periods are {sorted(valid_periods)}. "
+            "For a longer window (e.g. 20 years), pass start='YYYY-MM-DD' or period='max'."
         )
-    return df
+
+    import time
+
+    last_error: Exception | None = None
+    for attempt in range(retries):
+        try:
+            ticker = yf.Ticker(symbol)
+            if start is not None:
+                df = ticker.history(start=start, end=end, interval=interval)
+            else:
+                df = ticker.history(period=period, interval=interval)
+            if not df.empty:
+                return df
+            last_error = ValueError("empty response")
+        except Exception as exc:  # transient network / rate-limit errors
+            last_error = exc
+        if attempt < retries - 1:
+            time.sleep(1.5 * (attempt + 1))  # simple backoff between attempts
+
+    raise ValueError(
+        f"No data returned for symbol {symbol!r} after {retries} attempts "
+        f"(period={period!r}, start={start!r}, interval={interval!r}). This is often "
+        f"Yahoo rate-limiting rather than a bad symbol — try again, fetch fewer "
+        f"symbols, or space out requests. Last error: {last_error}"
+    )

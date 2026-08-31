@@ -5,6 +5,15 @@ All notable changes to this project are documented here. The format is based on
 [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
+### Fixed
+- `load_ticker` now **validates the period** (rejecting invalid strings like
+  `"20y"` with a clear message), supports `start`/`end` dates for long windows,
+  and **retries on transient/empty responses** — Yahoo rate-limits bursts, which
+  made valid symbols intermittently fail with a misleading "possibly delisted".
+- `strategy_study.py` now fetches a real 20-year window via a `start` date
+  (`--years`, default 20) instead of the invalid `period="20y"`, pauses between
+  requests (`--pause`), and reports how many tickers were fetched.
+
 ### Added
 - **Educational backtesting.** `datavinci.backtest(df, strategy, cost=...)` runs a
   transparent, single-asset backtest with a built-in one-bar lookahead guard and
