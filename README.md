@@ -220,6 +220,21 @@ python examples/compare_strategies.py                 # offline synthetic data
 python examples/compare_strategies.py --ticker AAPL --period 5y   # real data
 ```
 
+**Study across many stocks.** `examples/strategy_study.py` runs every strategy
+over a universe of stocks (a built-in ~34-name list, or your own) for the last
+~20 years, then reports aggregate results — median CAGR/Sharpe/drawdown and the
+share of stocks where each strategy *beat buy-&-hold*:
+
+```bash
+python examples/strategy_study.py                     # built-in ~34 stocks, 20y
+python examples/strategy_study.py --tickers AAPL MSFT KO JPM XOM
+python examples/strategy_study.py --synthetic 30      # offline, no network
+```
+
+> The built-in universe is **survivorship-biased** (only companies that exist
+> today), so it flatters every result. The script says so, loudly — treat it as a
+> lesson in *comparing* rules, not proof any of them works.
+
 > **Beginner traps this tool guards against — but you should still know:**
 > lookahead bias (handled by the one-bar delay), ignoring costs (handled by
 > `cost`), and **overfitting** (tuning parameters until the past looks great —

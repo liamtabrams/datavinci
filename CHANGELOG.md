@@ -20,6 +20,11 @@ All notable changes to this project are documented here. The format is based on
   strategy (plus buy-&-hold) on the same data, prints a metrics comparison table,
   and saves an overlaid equity-curve chart and per-strategy tearsheets. Works
   offline by default; `--ticker AAPL` fetches real data (with graceful fallback).
+- `examples/strategy_study.py` — a CLI study that runs every strategy across a
+  universe of stocks (built-in ~34-name list, `--tickers`, or `--synthetic N`)
+  over ~20 years and aggregates the results: median CAGR/Sharpe/drawdown, average
+  win rate, and the share of stocks that beat buy-&-hold, with a summary chart and
+  a per-stock CSV. Prominently documents its survivorship bias and other caveats.
 - `datavinci.dashboard(source, ...)` — a stacked **price + volume** dashboard in
   one call, with candlesticks (plus optional SMA overlays) on top, direction-colored
   volume bars below, an aligned shared x-axis, and a humanized volume axis

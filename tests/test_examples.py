@@ -40,3 +40,17 @@ def test_compare_strategies_runs_and_lists_all(tmp_path):
         assert name in proc.stdout
     # The comparison chart should have been written.
     assert (tmp_path / "out" / "equity_comparison.png").exists()
+
+
+def test_strategy_study_runs_offline(tmp_path):
+    # Small synthetic universe + short history so the smoke test is fast.
+    out = tmp_path / "study"
+    proc = _run(
+        "strategy_study.py",
+        ["--synthetic", "4", "--bars", "400", "--outdir", str(out)],
+        tmp_path,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "beat B&H" in proc.stdout          # the aggregate table printed
+    assert (out / "per_stock.csv").exists()   # per-stock results written
+    assert (out / "study_summary.png").exists()
