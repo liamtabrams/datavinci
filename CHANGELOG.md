@@ -16,6 +16,10 @@ All notable changes to this project are documented here. The format is based on
   `bollinger_breakout`, and `macd_crossover`, plus `rsi`, `bollinger_bands`, and
   `macd` indicator helpers. The README documents each strategy in plain English
   with a usage example. For learning/visualization only — not investment advice.
+- `examples/compare_strategies.py` — a CLI script that backtests every built-in
+  strategy (plus buy-&-hold) on the same data, prints a metrics comparison table,
+  and saves an overlaid equity-curve chart and per-strategy tearsheets. Works
+  offline by default; `--ticker AAPL` fetches real data (with graceful fallback).
 - `datavinci.dashboard(source, ...)` — a stacked **price + volume** dashboard in
   one call, with candlesticks (plus optional SMA overlays) on top, direction-colored
   volume bars below, an aligned shared x-axis, and a humanized volume axis

@@ -211,10 +211,20 @@ the equity curve vs. buy-&-hold, and the drawdown. Metrics include total return,
 CAGR, annualized volatility, Sharpe, Sortino, max drawdown, Calmar, win rate, and
 exposure.
 
+**Compare them all at once.** `examples/compare_strategies.py` runs every built-in
+strategy (plus buy-&-hold) on the same data, prints a metrics table, and saves an
+overlaid equity-curve chart and per-strategy tearsheets:
+
+```bash
+python examples/compare_strategies.py                 # offline synthetic data
+python examples/compare_strategies.py --ticker AAPL --period 5y   # real data
+```
+
 > **Beginner traps this tool guards against — but you should still know:**
 > lookahead bias (handled by the one-bar delay), ignoring costs (handled by
 > `cost`), and **overfitting** (tuning parameters until the past looks great —
-> always sanity-check on data you didn't tune on). See `examples/backtest_demo.py`.
+> always sanity-check on data you didn't tune on). See `examples/backtest_demo.py`
+> and `examples/compare_strategies.py`.
 
 ## Project layout
 
