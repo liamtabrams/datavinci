@@ -13,8 +13,11 @@ All notable changes to this project are documented here. The format is based on
 - `load_ticker` gained a **`source="stooq"`** option — a free, key-free
   alternative data provider for when Yahoo throttles or yfinance breaks against
   Yahoo's API (the `Expecting value: line 1 column 1` error). `strategy_study.py`
-  exposes it via `--source stooq`. The `finance` extra now requires a newer
-  yfinance (`>=0.2.40`).
+  exposes it via `--source stooq`.
+- The `finance` extra now installs **`curl_cffi>=0.15`** (and `yfinance>=0.2.40`).
+  yfinance needs curl_cffi to mimic a browser's TLS fingerprint; without it Yahoo
+  blocks the client and returns empty data — the actual root cause of the fetch
+  failures above.
 - `strategy_study.py` now fetches a real 20-year window via a `start` date
   (`--years`, default 20) instead of the invalid `period="20y"`, pauses between
   requests (`--pause`), and reports how many tickers were fetched.

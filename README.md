@@ -232,10 +232,12 @@ python examples/strategy_study.py --synthetic 30      # offline, no network
 python examples/strategy_study.py --source stooq      # if Yahoo is throttling you
 ```
 
-> Yahoo Finance rate-limits and occasionally breaks yfinance (the
-> `Expecting value: line 1 column 1` error). If fetches fail, run
-> `pip install -U yfinance`, or use `--source stooq` — a free, key-free
-> alternative provider (`load_ticker(..., source="stooq")`).
+> **Yahoo fetches failing?** yfinance needs `curl_cffi` to impersonate a browser's
+> TLS fingerprint; without it Yahoo blocks the client and returns empty data (the
+> `Expecting value: line 1 column 1` error). Install it — it's included in the
+> `finance` extra, so `pip install -U "datavinci[finance]"` fixes it, or
+> `pip install curl_cffi`. Still stuck? Use `--source stooq`, a free, key-free
+> alternative provider that needs no special client (`load_ticker(..., source="stooq")`).
 
 > The built-in universe is **survivorship-biased** (only companies that exist
 > today), so it flatters every result. The script says so, loudly — treat it as a

@@ -31,8 +31,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Pulls in yfinance so you can load real ticker data with datavinci.data.load_ticker.
-finance = ["yfinance>=0.2.40"]
+# Real ticker data via datavinci.data.load_ticker. curl_cffi lets yfinance mimic a
+# browser's TLS fingerprint — without it Yahoo blocks the client and returns empty
+# data ("Expecting value: line 1 column 1"). Stooq (source="stooq") needs neither.
+finance = ["yfinance>=0.2.40", "curl_cffi>=0.15"]
 # Everything needed to develop, test, and publish the package.
 dev = [
     "pytest>=7",
@@ -41,6 +43,7 @@ dev = [
     "build",
     "twine",
     "yfinance>=0.2.40",
+    "curl_cffi>=0.15",
 ]
 
 [project.urls]
