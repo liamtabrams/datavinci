@@ -229,7 +229,13 @@ share of stocks where each strategy *beat buy-&-hold*:
 python examples/strategy_study.py                     # built-in ~34 stocks, 20y
 python examples/strategy_study.py --tickers AAPL MSFT KO JPM XOM
 python examples/strategy_study.py --synthetic 30      # offline, no network
+python examples/strategy_study.py --source stooq      # if Yahoo is throttling you
 ```
+
+> Yahoo Finance rate-limits and occasionally breaks yfinance (the
+> `Expecting value: line 1 column 1` error). If fetches fail, run
+> `pip install -U yfinance`, or use `--source stooq` — a free, key-free
+> alternative provider (`load_ticker(..., source="stooq")`).
 
 > The built-in universe is **survivorship-biased** (only companies that exist
 > today), so it flatters every result. The script says so, loudly — treat it as a

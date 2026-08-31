@@ -10,6 +10,11 @@ All notable changes to this project are documented here. The format is based on
   `"20y"` with a clear message), supports `start`/`end` dates for long windows,
   and **retries on transient/empty responses** — Yahoo rate-limits bursts, which
   made valid symbols intermittently fail with a misleading "possibly delisted".
+- `load_ticker` gained a **`source="stooq"`** option — a free, key-free
+  alternative data provider for when Yahoo throttles or yfinance breaks against
+  Yahoo's API (the `Expecting value: line 1 column 1` error). `strategy_study.py`
+  exposes it via `--source stooq`. The `finance` extra now requires a newer
+  yfinance (`>=0.2.40`).
 - `strategy_study.py` now fetches a real 20-year window via a `start` date
   (`--years`, default 20) instead of the invalid `period="20y"`, pauses between
   requests (`--pause`), and reports how many tickers were fetched.

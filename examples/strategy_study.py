@@ -24,6 +24,11 @@ Offline (synthetic universe — for testing the script with no network)::
 
     python examples/strategy_study.py --synthetic 30
 
+If Yahoo throttles you or yfinance errors (``Expecting value: line 1 column 1``),
+upgrade yfinance (``pip install -U yfinance``) or switch to the Stooq source::
+
+    python examples/strategy_study.py --source stooq
+
 Outputs a printed summary table, a `per_stock.csv` with every result, and a
 summary chart. Add `--no-plots` to skip images.
 
@@ -90,12 +95,13 @@ def synthetic_universe(n: int, bars: int) -> dict[str, pd.DataFrame]:
 
 
 def load_universe(
-    tickers: list[str], years: int, interval: str, min_bars: int, pause: float
+    tickers: list[str], years: int, interval: str, min_bars: int, pause: float, source: str
 ) -> dict[str, pd.DataFrame]:
     """Fetch ~``years`` of real price data per ticker, skipping any that fail.
 
     Uses a start date (not an invalid ``"20y"`` period) so long windows work, and
-    pauses briefly between requests to avoid Yahoo rate-limiting.
+    pauses briefly between requests to avoid Yahoo rate-limiting. ``source`` picks
+    the data provider ("yahoo" or "stooq").
     """
     import time
     from datetime import date
@@ -107,7 +113,7 @@ def load_universe(
     for i, sym in enumerate(tickers):
         try:
             # load_ticker retries internally on transient/empty responses.
-            df = load_ticker(sym, start=start, interval=interval)
+            df = load_ticker(sym, start=start, interval=interval, source=source)
         except Exception as exc:  # network error, bad symbol, persistent rate-limit
             print(f"  ! skipping {sym}: {exc}")
             continue
@@ -211,6 +217,8 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--interval", default="1d", help="Bar interval (default 1d).")
     parser.add_argument("--pause", type=float, default=0.5,
                         help="Seconds to wait between ticker fetches (rate-limit relief).")
+    parser.add_argument("--source", choices=("yahoo", "stooq"), default="yahoo",
+                        help="Data provider. Try 'stooq' if Yahoo throttles/breaks.")
     parser.add_argument("--synthetic", type=int, metavar="N", help="Use N synthetic stocks.")
     parser.add_argument("--bars", type=int, default=5040, help="Synthetic history length (~20y).")
     parser.add_argument("--min-bars", type=int, default=252, help="Skip stocks shorter than this.")
@@ -226,11 +234,16 @@ def main(argv: list[str] | None = None) -> None:
         data = synthetic_universe(args.synthetic, args.bars)
     else:
         tickers = args.tickers or DEFAULT_UNIVERSE
-        print(f"Fetching {len(tickers)} tickers, last {args.years}y (this can take a minute)...")
-        data = load_universe(tickers, args.years, args.interval, args.min_bars, args.pause)
+        print(f"Fetching {len(tickers)} tickers, last {args.years}y "
+              f"from {args.source} (this can take a minute)...")
+        data = load_universe(
+            tickers, args.years, args.interval, args.min_bars, args.pause, args.source
+        )
         if not data:
-            print("\nNo data could be fetched (no network, or yfinance not installed?).")
-            print("Try the offline mode:  python examples/strategy_study.py --synthetic 30")
+            print("\nNo data could be fetched. Common fixes:")
+            print("  • Upgrade yfinance:   pip install -U yfinance")
+            print("  • Try another source: add  --source stooq")
+            print("  • Test offline:       python examples/strategy_study.py --synthetic 30")
             return
         print(f"  fetched {len(data)} of {len(tickers)} tickers.")
 

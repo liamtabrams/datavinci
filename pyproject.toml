@@ -32,7 +32,7 @@ dependencies = [
 
 [project.optional-dependencies]
 # Pulls in yfinance so you can load real ticker data with datavinci.data.load_ticker.
-finance = ["yfinance>=0.2"]
+finance = ["yfinance>=0.2.40"]
 # Everything needed to develop, test, and publish the package.
 dev = [
     "pytest>=7",
@@ -40,7 +40,7 @@ dev = [
     "ruff",
     "build",
     "twine",
-    "yfinance>=0.2",
+    "yfinance>=0.2.40",
 ]
 
 [project.urls]

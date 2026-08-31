@@ -90,10 +90,11 @@ def load_ticker(
     start: str | None = None,
     end: str | None = None,
     retries: int = 3,
+    source: str = "yahoo",
 ) -> pd.DataFrame:
-    """Download OHLC data for ``symbol`` from Yahoo Finance.
+    """Download OHLC data for ``symbol`` from Yahoo Finance or Stooq.
 
-    Requires the optional ``yfinance`` dependency::
+    Requires the optional dependencies::
 
         pip install "datavinci[finance]"
 
@@ -102,26 +103,43 @@ def load_ticker(
     symbol:
         Ticker symbol, e.g. ``"AAPL"``.
     period:
-        yfinance period string. Must be one of ``1d, 5d, 1mo, 3mo, 6mo, 1y, 2y,
-        5y, 10y, ytd, max`` — note there is **no** ``20y``; for longer windows
-        pass ``start=`` (e.g. ``start="2005-01-01"``) or ``period="max"``.
-        Ignored when ``start`` is given.
+        Period string. Must be one of ``1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y,
+        ytd, max`` — note there is **no** ``20y``; for longer windows pass
+        ``start=`` (e.g. ``start="2005-01-01"``) or ``period="max"``. Ignored when
+        ``start`` is given.
     interval:
-        yfinance interval string (e.g. ``"1d"``, ``"1h"``).
+        Bar interval (e.g. ``"1d"``). Only ``"1d"`` is supported by the Stooq source.
     start, end:
         Optional ``YYYY-MM-DD`` date range. When ``start`` is given it takes
-        precedence over ``period`` — this is the reliable way to get many years.
+        precedence over ``period`` — the reliable way to get many years.
     retries:
         How many times to retry a request that fails or comes back empty. Yahoo
         rate-limits bursts of requests, so a valid symbol can transiently return
         no data (yfinance then wrongly reports "possibly delisted"); retrying with
         a short backoff fixes that.
+    source:
+        ``"yahoo"`` (default, via yfinance) or ``"stooq"``. **Stooq** is a good,
+        key-free alternative when Yahoo is throttling or yfinance is broken against
+        Yahoo's API (the classic ``Expecting value: line 1 column 1`` error); it
+        serves daily US data via a simple CSV endpoint and needs no extra package.
 
     Returns
     -------
     pandas.DataFrame
         Standard Open/High/Low/Close/Volume columns with a DatetimeIndex.
     """
+    valid_periods = {"1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"}
+    if start is None and period not in valid_periods:
+        raise ValueError(
+            f"Invalid period {period!r}. Valid periods are {sorted(valid_periods)}. "
+            "For a longer window (e.g. 20 years), pass start='YYYY-MM-DD' or period='max'."
+        )
+
+    if source == "stooq":
+        return _load_stooq(symbol, start=start, end=end, period=period)
+    if source != "yahoo":
+        raise ValueError(f"Unknown source {source!r}. Use 'yahoo' or 'stooq'.")
+
     try:
         import yfinance as yf
     except ImportError as exc:  # pragma: no cover - exercised only without extra
@@ -129,13 +147,6 @@ def load_ticker(
             "load_ticker requires yfinance. Install it with:\n"
             '    pip install "datavinci[finance]"'
         ) from exc
-
-    valid_periods = {"1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"}
-    if start is None and period not in valid_periods:
-        raise ValueError(
-            f"Invalid period {period!r}. Valid periods are {sorted(valid_periods)}. "
-            "For a longer window (e.g. 20 years), pass start='YYYY-MM-DD' or period='max'."
-        )
 
     import time
 
@@ -158,6 +169,59 @@ def load_ticker(
     raise ValueError(
         f"No data returned for symbol {symbol!r} after {retries} attempts "
         f"(period={period!r}, start={start!r}, interval={interval!r}). This is often "
-        f"Yahoo rate-limiting rather than a bad symbol — try again, fetch fewer "
-        f"symbols, or space out requests. Last error: {last_error}"
+        f"Yahoo rate-limiting or an outdated yfinance (try `pip install -U yfinance`), "
+        f"not a bad symbol. You can also switch data source: load_ticker(..., "
+        f'source="stooq"). Last error: {last_error}'
     )
+
+
+def _period_to_start(period: str) -> str | None:
+    """Approximate a start date for a period string (for the Stooq source)."""
+    if period in (None, "max"):
+        return None
+    unit = period[-1] if period[-2:] != "mo" else "mo"
+    try:
+        num = int(period[: -len(unit)] or 0)
+    except ValueError:
+        return None
+    today = pd.Timestamp.today().normalize()
+    offset = {
+        "d": pd.Timedelta(days=num),
+        "mo": pd.DateOffset(months=num),
+        "y": pd.DateOffset(years=num),
+    }.get(unit)
+    return None if offset is None else (today - offset).strftime("%Y-%m-%d")
+
+
+def _load_stooq(
+    symbol: str, *, start: str | None, end: str | None, period: str
+) -> pd.DataFrame:
+    """Fetch daily OHLC data from Stooq's free CSV endpoint (no API key).
+
+    Stooq expects US tickers suffixed with ``.us`` (e.g. ``aapl.us``) and returns a
+    CSV with Date/Open/High/Low/Close/Volume, oldest first once sorted.
+    """
+    s = symbol.lower()
+    if "." not in s:
+        s += ".us"  # Stooq's convention for US-listed symbols
+    if start is None:
+        start = _period_to_start(period)
+
+    url = f"https://stooq.com/q/d/l/?s={s}&i=d"
+    if start:
+        url += f"&d1={start.replace('-', '')}"
+    if end:
+        url += f"&d2={end.replace('-', '')}"
+
+    df = pd.read_csv(url)
+    # A bad symbol / empty range returns a one-cell "No data" frame, not OHLC.
+    if df.empty or "Date" not in df.columns:
+        raise ValueError(
+            f"No Stooq data for {symbol!r} (requested {s}). Check the symbol; Stooq "
+            "covers US stocks and major markets, daily bars only."
+        )
+    df.index = pd.to_datetime(df["Date"])
+    df.index.name = None
+    df = df.sort_index()
+    cols = [c for c in ("Open", "High", "Low", "Close", "Volume") if c in df.columns]
+    return df[cols]
