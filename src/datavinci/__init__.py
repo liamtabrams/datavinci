@@ -27,7 +27,9 @@ accents). For the brighter green/red neon look, switch themes before plotting:
 >>> ax = dv.candlestick(df, title="Demo")
 """
 
+from . import strategies
 from ._theme import active_theme, available_themes, use_theme
+from .backtest import BacktestResult, backtest, tearsheet
 from .convenience import chart, dashboard, save, show
 from .timeseries import candlestick, line, moving_average
 
@@ -41,6 +43,10 @@ __all__ = [
     "candlestick",
     "line",
     "moving_average",
+    "backtest",
+    "tearsheet",
+    "BacktestResult",
+    "strategies",
     "use_theme",
     "active_theme",
     "available_themes",

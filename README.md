@@ -105,6 +105,64 @@ their normal style. Key touches:
 Plotting functions accept an optional `ax=` and return the `Axes` they drew on;
 `dashboard()` returns the `Figure`.
 
+## Backtesting (educational)
+
+datavinci includes a small, **transparent** backtester so you can test a simple
+trading rule and see how it would have performed — then render a polished
+performance report. It is built for **learning and visualization, not live
+trading, and is not investment advice.** Backtested results never guarantee
+future performance.
+
+```python
+import datavinci as dv
+from datavinci.data import sample_ohlc
+
+df = sample_ohlc(periods=400)                       # or load_ticker("AAPL", period="2y")
+
+strat  = dv.strategies.sma_crossover(fast=20, slow=50)   # a trading rule
+result = dv.backtest(df, strat, cost=0.001)              # simulate it (10 bps/trade)
+
+print(result.summary())                             # metrics as text
+fig = dv.tearsheet(result)                           # the visual report
+dv.save(fig, "tearsheet.png")
+```
+
+**How the backtest works (and why you can trust it).** Given price data and a
+`signal` (the position to hold each bar: `+1` long, `0` flat, `-1` short), it:
+
+1. **Delays the signal by one bar** — `position = signal.shift(1)`. You act on a
+   signal on the *next* bar, so a rule computed at today's close can't trade on
+   today's move. This is the key guard against **lookahead bias** (accidentally
+   using information you wouldn't have had — the #1 way backtests lie).
+2. Computes asset returns `r[t] = Close[t]/Close[t-1] − 1`.
+3. Strategy return before costs = `position × r`.
+4. **Charges a trading cost whenever the position changes** (`cost` per unit of
+   turnover) — so a strategy that trades constantly is penalized realistically.
+5. Compounds the net returns into an **equity curve**, alongside a buy-&-hold
+   baseline for comparison.
+
+Everything is stored on `result.history` (a DataFrame) so you can inspect or
+re-plot any column.
+
+**Strategies** are just functions `df → signal`. Three are included, and you can
+write your own:
+
+| Strategy | Idea |
+| --- | --- |
+| `dv.strategies.sma_crossover(fast, slow)` | Long while the fast moving average is above the slow one (trend-following). |
+| `dv.strategies.rsi_meanreversion(period, low, high)` | Buy when oversold (RSI < `low`), exit when recovered (RSI > `high`). |
+| `dv.strategies.bollinger_breakout(period, num_std)` | Go long on a breakout above the upper Bollinger band. |
+
+The `tearsheet()` report shows the metrics, the price with entry/exit markers,
+the equity curve vs. buy-&-hold, and the drawdown. Metrics include total return,
+CAGR, annualized volatility, Sharpe, Sortino, max drawdown, Calmar, win rate, and
+exposure.
+
+> **Beginner traps this tool guards against — but you should still know:**
+> lookahead bias (handled by the one-bar delay), ignoring costs (handled by
+> `cost`), and **overfitting** (tuning parameters until the past looks great —
+> always sanity-check on data you didn't tune on). See `examples/backtest_demo.py`.
+
 ## Project layout
 
 ```
@@ -114,6 +172,8 @@ datavinci/
 │   ├── __init__.py
 │   ├── convenience.py      # chart / dashboard / save / show
 │   ├── timeseries.py       # line / moving_average / candlestick
+│   ├── backtest.py         # backtest / tearsheet (educational)
+│   ├── strategies.py       # sma_crossover / rsi / bollinger + indicators
 │   ├── data.py             # sample_ohlc / load_ticker
 │   └── _theme.py           # themes, palettes, effects
 ├── tests/                  # pytest suite (offline, Agg backend)

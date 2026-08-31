@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 ### Added
+- **Educational backtesting.** `datavinci.backtest(df, strategy, cost=...)` runs a
+  transparent, single-asset backtest with a built-in one-bar lookahead guard and
+  transaction costs, returning a `BacktestResult` (per-bar `history`, a per-trade
+  log, and summary metrics: total return, CAGR, volatility, Sharpe, Sortino, max
+  drawdown, Calmar, win rate, exposure). `datavinci.tearsheet(result)` renders a
+  themed 4-panel report (metrics, price with trade markers, equity vs. buy-&-hold,
+  drawdown). `datavinci.strategies` ships `sma_crossover`, `rsi_meanreversion`,
+  and `bollinger_breakout`, plus `rsi` and `bollinger_bands` indicators. For
+  learning/visualization only — not investment advice.
 - `datavinci.dashboard(source, ...)` — a stacked **price + volume** dashboard in
   one call, with candlesticks (plus optional SMA overlays) on top, direction-colored
   volume bars below, an aligned shared x-axis, and a humanized volume axis
