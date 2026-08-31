@@ -40,8 +40,10 @@ __all__ = [
     "sma_crossover",
     "rsi_meanreversion",
     "bollinger_breakout",
+    "macd_crossover",
     "rsi",
     "bollinger_bands",
+    "macd",
 ]
 
 
@@ -88,6 +90,29 @@ def bollinger_bands(
     upper = mid + num_std * sd
     lower = mid - num_std * sd
     return mid, upper, lower
+
+
+def macd(
+    close: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9
+) -> tuple[pd.Series, pd.Series, pd.Series]:
+    """MACD indicator: (macd_line, signal_line, histogram).
+
+    MACD ("moving-average convergence/divergence") tracks momentum by subtracting
+    a slow exponential moving average (EMA) of price from a fast one::
+
+        macd_line   = EMA(fast) - EMA(slow)
+        signal_line = EMA(macd_line, signal)
+        histogram   = macd_line - signal_line
+
+    When the MACD line is above its signal line, short-term momentum is stronger
+    than the recent trend (often read as bullish), and vice versa.
+    """
+    close = close.astype(float)
+    ema_fast = close.ewm(span=fast, adjust=False).mean()
+    ema_slow = close.ewm(span=slow, adjust=False).mean()
+    macd_line = ema_fast - ema_slow
+    signal_line = macd_line.ewm(span=signal, adjust=False).mean()
+    return macd_line, signal_line, macd_line - signal_line
 
 
 # ---------------------------------------------------------------------------
@@ -161,5 +186,28 @@ def bollinger_breakout(period: int = 20, num_std: float = 2.0) -> Strategy:
         # Enter on a break above the upper band; exit when back below the middle.
         raw = np.where(close > upper, 1.0, np.where(close < mid, 0.0, np.nan))
         return pd.Series(raw, index=df.index).ffill().fillna(0.0)
+
+    return strategy
+
+
+def macd_crossover(fast: int = 12, slow: int = 26, signal: int = 9) -> Strategy:
+    """Momentum: be long while the MACD line is above its signal line.
+
+    A widely-used momentum rule. When the MACD line crosses above its signal line,
+    short-term momentum has turned up relative to the recent trend, so we hold a
+    long position; when it crosses back below, we go flat.
+
+    Parameters
+    ----------
+    fast, slow, signal:
+        The MACD EMA spans (see :func:`macd`). ``fast < slow``.
+    """
+    if fast >= slow:
+        raise ValueError(f"fast ({fast}) must be smaller than slow ({slow}).")
+
+    def strategy(df: pd.DataFrame) -> pd.Series:
+        macd_line, signal_line, _hist = macd(_close(df), fast, slow, signal)
+        # 1 while MACD is above its signal line, else 0.
+        return (macd_line > signal_line).astype(float)
 
     return strategy

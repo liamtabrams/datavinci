@@ -23,6 +23,7 @@ df = sample_ohlc(periods=500, seed=5)
 strategy = dv.strategies.sma_crossover(fast=20, slow=50)
 # strategy = dv.strategies.rsi_meanreversion(period=14, low=30, high=70)
 # strategy = dv.strategies.bollinger_breakout(period=20, num_std=2)
+# strategy = dv.strategies.macd_crossover(fast=12, slow=26, signal=9)
 
 # --- 3. Backtest it -----------------------------------------------------------
 # cost=0.001 charges 10 basis points of trading cost each time we trade. The

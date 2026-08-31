@@ -144,14 +144,67 @@ dv.save(fig, "tearsheet.png")
 Everything is stored on `result.history` (a DataFrame) so you can inspect or
 re-plot any column.
 
-**Strategies** are just functions `df → signal`. Three are included, and you can
-write your own:
+### The strategies explained
 
-| Strategy | Idea |
-| --- | --- |
-| `dv.strategies.sma_crossover(fast, slow)` | Long while the fast moving average is above the slow one (trend-following). |
-| `dv.strategies.rsi_meanreversion(period, low, high)` | Buy when oversold (RSI < `low`), exit when recovered (RSI > `high`). |
-| `dv.strategies.bollinger_breakout(period, num_std)` | Go long on a breakout above the upper Bollinger band. |
+A **strategy** is just a function `df → signal` (the position to hold each bar).
+Four classic ones are included as starting examples — you don't need to know them
+to use datavinci, and none is a recommendation. Whether any makes money is exactly
+what the backtester lets you check.
+
+First, one building block they share: a **moving average** is simply the average
+price over the last _N_ days, recomputed each day. It smooths out daily jitters so
+you can see the trend. A short window (e.g. 20 days) reacts quickly; a long one
+(e.g. 50 days) is slower and steadier.
+
+**1. SMA crossover** — *trend-following.* Uses a fast and a slow moving average.
+Go **long** while the fast one is above the slow one (an uptrend), otherwise sit
+**flat**. Tries to ride uptrends and step aside in downtrends.
+
+```python
+strat = dv.strategies.sma_crossover(fast=20, slow=50)
+dv.tearsheet(dv.backtest(df, strat, cost=0.001))
+```
+
+**2. RSI mean-reversion** — *betting extremes snap back.* RSI is a 0–100 gauge of
+how one-sided recent moves have been (below ~30 = "oversold", above ~70 =
+"overbought"). Buy when **oversold**, exit once it **recovers**.
+
+```python
+strat = dv.strategies.rsi_meanreversion(period=14, low=30, high=70)
+dv.tearsheet(dv.backtest(df, strat))
+```
+
+**3. Bollinger breakout** — *betting momentum continues.* Bollinger Bands draw an
+envelope around the average price, wider when the stock is volatile. Go **long
+when price breaks above the upper band** (an unusually strong move).
+
+```python
+strat = dv.strategies.bollinger_breakout(period=20, num_std=2)
+dv.tearsheet(dv.backtest(df, strat))
+```
+
+**4. MACD crossover** — *momentum.* MACD compares a fast and a slow exponential
+moving average; when its line rises above its own "signal line", short-term
+momentum has turned up. Go **long while MACD is above its signal line**.
+
+```python
+strat = dv.strategies.macd_crossover(fast=12, slow=26, signal=9)
+dv.tearsheet(dv.backtest(df, strat))
+```
+
+**Write your own.** A strategy just returns a position Series (`+1`/`0`/`-1`)
+aligned to `df`. For example, "hold only on up-days" (a toy example):
+
+```python
+def my_rule(df):
+    return (df["Close"].diff() > 0).astype(float)   # +1 after an up day, else 0
+
+dv.tearsheet(dv.backtest(df, my_rule, strategy_name="up-day rule"))
+```
+
+The indicators themselves are exported too, if you just want the numbers:
+`dv.strategies.rsi(close)`, `dv.strategies.bollinger_bands(close)`, and
+`dv.strategies.macd(close)`.
 
 The `tearsheet()` report shows the metrics, the price with entry/exit markers,
 the equity curve vs. buy-&-hold, and the drawdown. Metrics include total return,

@@ -129,11 +129,24 @@ def test_rsi_bounds(ohlc):
     assert (r >= 0).all() and (r <= 100).all()
 
 
+def test_macd_returns_three_aligned_series(ohlc):
+    macd_line, signal_line, hist = dv.strategies.macd(ohlc["Close"])
+    assert len(macd_line) == len(signal_line) == len(hist) == len(ohlc)
+    # Histogram is exactly macd minus signal, by definition.
+    np.testing.assert_allclose(hist.to_numpy(), (macd_line - signal_line).to_numpy())
+
+
+def test_macd_crossover_rejects_bad_windows():
+    with pytest.raises(ValueError):
+        dv.strategies.macd_crossover(fast=26, slow=12)
+
+
 def test_all_canned_strategies_run(ohlc):
     for strat in (
         dv.strategies.sma_crossover(10, 30),
         dv.strategies.rsi_meanreversion(),
         dv.strategies.bollinger_breakout(),
+        dv.strategies.macd_crossover(),
     ):
         r = dv.backtest(ohlc, strat)
         assert "Total return" in r.metrics

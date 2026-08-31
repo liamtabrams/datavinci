@@ -13,8 +13,9 @@ All notable changes to this project are documented here. The format is based on
   drawdown, Calmar, win rate, exposure). `datavinci.tearsheet(result)` renders a
   themed 4-panel report (metrics, price with trade markers, equity vs. buy-&-hold,
   drawdown). `datavinci.strategies` ships `sma_crossover`, `rsi_meanreversion`,
-  and `bollinger_breakout`, plus `rsi` and `bollinger_bands` indicators. For
-  learning/visualization only — not investment advice.
+  `bollinger_breakout`, and `macd_crossover`, plus `rsi`, `bollinger_bands`, and
+  `macd` indicator helpers. The README documents each strategy in plain English
+  with a usage example. For learning/visualization only — not investment advice.
 - `datavinci.dashboard(source, ...)` — a stacked **price + volume** dashboard in
   one call, with candlesticks (plus optional SMA overlays) on top, direction-colored
   volume bars below, an aligned shared x-axis, and a humanized volume axis
